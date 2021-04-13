@@ -18,3 +18,4 @@ class Config():
     seed = 42
     epochs = 15
     num_wifi_feats = 20
+    fold_num = 5

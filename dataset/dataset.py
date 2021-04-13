@@ -1,7 +1,17 @@
+import pandas as pd
+from pytorch_lightning import LightningDataModule
+from torch.utils.data import Dataset, DataLoader
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import StratifiedKFold
+from config import Config
+
+
 class IndoorDataset(Dataset):
-    def __init__(self, data, flag='TRAIN'):
+    def __init__(self, data, bssid_feats, rssi_feats, flag='TRAIN'):
         self.data = data
         self.flag = flag
+        self.bssid_feats = bssid_feats
+        self.rssi_feats = rssi_feats
 
     def __len__(self):
         return self.data.shape[0]
@@ -10,8 +20,8 @@ class IndoorDataset(Dataset):
         tmp_data = self.data.iloc[index]
         if self.flag == 'TRAIN':
             return {
-                'BSSID_FEATS': tmp_data[BSSID_FEATS].values.astype(float),
-                'RSSI_FEATS': tmp_data[RSSI_FEATS].values.astype(float),
+                'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(float),
+                'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(float),
                 'site_id': tmp_data['site_id'].astype(int),
                 'x': tmp_data['x'],
                 'y': tmp_data['y'],
@@ -19,8 +29,8 @@ class IndoorDataset(Dataset):
             }
         elif self.flag == 'TEST':
             return {
-                'BSSID_FEATS': tmp_data[BSSID_FEATS].values.astype(float),
-                'RSSI_FEATS': tmp_data[RSSI_FEATS].values.astype(float),
+                'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(float),
+                'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(float),
                 'site_id': tmp_data['site_id'].astype(int)
             }
 
@@ -38,8 +48,13 @@ class IndoorDataModule():
             self._kfold()
 
         # Init preprocessing
+        self._init_feats()
         self._init_wifi_bssids()
         self._init_transforms()
+
+    def _init_feats(self):
+        self.bssid_feats = [f'bssid_{i}' for i in range(Config.num_wifi_feats)]
+        self.rssi_feats = [f'rssi_{i}' for i in range(Config.num_wifi_feats)]
 
     def _init_wifi_bssids(self):
         wifi_bssids = []
@@ -57,15 +72,15 @@ class IndoorDataModule():
         self.site_id_encoder.fit(self.train_data['site_id'])
 
         self.rssi_normalizer = StandardScaler()
-        self.rssi_normalizer.fit(self.train_data.loc[:, RSSI_FEATS])
+        self.rssi_normalizer.fit(self.train_data.loc[:, self.rssi_feats])
 
     def _transform(self, data):
-        data.loc[:, BSSI_FEATS] = self.wifi_bssids_encoder.transform(
-            data.loc[:, BSSI_FEATS])
+        data.loc[:, self.bssid_feats] = self.wifi_bssids_encoder.transform(
+            data.loc[:, self.bssid_feats])
         data.loc[:, 'site_id'] = self.site_id_encoder.transform(
             data.loc[:, 'site_id'])
-        data.loc[:, RSSI_FEATS] = self.rssi_normalizer.transform(
-            data.loc[:, RSSI_FEATS])
+        data.loc[:, self.rssi_feats] = self.rssi_normalizer.transform(
+            data.loc[:, self.rssi_feats])
         return data
 
     def _kfold(self):
@@ -84,17 +99,20 @@ class IndoorDataModule():
         if stage == 'fit' or stage is None:
             self.train_data = self._transform(self.train_data)
             if self.cross_val:
-                train_df = self.df[self.df['kfold'] !=
+                train_df = self.train_data[self.train_data['kfold'] !=
                                    self.fold_num].reset_index(drop=True)
-                val_df = self.df[self.df['kfold'] ==
+                val_df = self.train_data[self.train_data['kfold'] ==
                                  self.fold_num].reset_index(drop=True)
-            self.train = IndoorDataset(train_df, flag="TRAIN")
-            self.train = IndoorDataset(val_df, flag="TRAIN")
+            self.train = IndoorDataset(
+                train_df, self.bssid_feats, self.rssi_feats, flag="TRAIN")
+            self.val = IndoorDataset(
+                val_df, self.bssid_feats, self.rssi_feats, flag="TRAIN")
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
             self.test_data = self._transform(self.test_data)
-            self.test = IndoorDataset(self.test_data, flag="TEST")
+            self.test = IndoorDataset(
+                self.test_data, self.bssid_feats, self.rssi_feats, flag="TEST")
 
     def train_dataloader(self):
         return DataLoader(self.train, batch_size=self.batch_size)
