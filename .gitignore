@@ -6,6 +6,7 @@ __pycache__/
 # heavy data
 data 
 save
+lightning_logs
 
 # C extensions
 *.so
