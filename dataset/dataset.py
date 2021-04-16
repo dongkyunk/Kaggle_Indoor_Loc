@@ -44,12 +44,10 @@ class IndoorDataModule(LightningDataModule):
         self.kfold = kfold
         self.fold_num = fold_num
 
-    @time_function
     def _init_feats(self):
         self.bssid_feats = [f'bssid_{i}' for i in range(Config.num_wifi_feats)]
         self.rssi_feats = [f'rssi_{i}' for i in range(Config.num_wifi_feats)]
 
-    @time_function
     def _init_wifi_bssids(self):
         wifi_bssids = []
         for i in range(100):
@@ -59,7 +57,6 @@ class IndoorDataModule(LightningDataModule):
         self.wifi_bssids = list(set(wifi_bssids))
         self.wifi_bssids_size = len(wifi_bssids)
 
-    @time_function
     def _init_transforms(self):
         self.wifi_bssids_encoder = LabelEncoder()
         self.wifi_bssids_encoder.fit(self.wifi_bssids)
@@ -70,7 +67,6 @@ class IndoorDataModule(LightningDataModule):
         self.rssi_normalizer = StandardScaler()
         self.rssi_normalizer.fit(self.train_data[self.rssi_feats])
 
-    @time_function
     def _transform(self, data):
         for bssid_feat in self.bssid_feats:
             data[bssid_feat] = self.wifi_bssids_encoder.transform(
@@ -80,7 +76,6 @@ class IndoorDataModule(LightningDataModule):
             data[self.rssi_feats])
         return data
 
-    @time_function
     def _kfold(self):
         ''' Stratified Kfold based on site_id 
         '''
@@ -123,10 +118,10 @@ class IndoorDataModule(LightningDataModule):
                 self.test_data, self.bssid_feats, self.rssi_feats, flag="TEST")
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=Config.batch_size, shuffle=True)
+        return DataLoader(self.train, batch_size=Config.batch_size, num_workers=Config.num_workers, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val, batch_size=Config.batch_size)
+        return DataLoader(self.val, batch_size=Config.batch_size, num_workers=Config.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=Config.batch_size)
+        return DataLoader(self.test, batch_size=Config.batch_size, num_workers=Config.num_workers)

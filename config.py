@@ -13,10 +13,13 @@ class Config():
     SAVE_DIR = 'save'
     
     seed = 42
-    epochs = 15
+    epochs = 100
     num_wifi_feats = 20
     fold_num = 5
-    batch_size = 32
+    batch_size = 8
+    num_workers = 24
+    device = 'gpu'
+    neptune = False
 
     logging.basicConfig(level=logging.INFO)
     warnings.filterwarnings("ignore")

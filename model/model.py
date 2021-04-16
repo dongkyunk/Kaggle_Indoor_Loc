@@ -4,6 +4,7 @@ import numpy as np
 from pytorch_lightning import LightningModule
 from torch import optim
 from icecream import ic
+from config import Config
 
 
 def comp_metric(x_hat, y_hat, f_hat, x, y, f):
@@ -32,19 +33,18 @@ class IndoorLocModel(LightningModule):
 
         xy_hat, floor_hat = self(batch)
 
-        loss_xy = self.critertion_xy(xy_hat, xy_label)
-        loss_floor = self.criterion_floor(floor_hat, f).float()
-        loss = (loss_xy + 5000 * loss_floor).type(torch.float32)
-
-        ic(loss_xy)
-        ic(loss_floor)
+        loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
+        loss_floor = self.criterion_floor(floor_hat, f)
+        loss = loss_xy + 5000 * loss_floor
         ic(loss)
 
-        metric = self.metric(xy_hat[:, 0].detach(), xy_hat[:, 1].detach(
-        ), torch.argmax(floor_hat, dim=-1).detach(), x, y, f)
 
-        #neptune.log_metric('train_loss', loss)
-        #neptune.log_metric('train_metric', metric)
+        metric = self.metric(xy_hat[:, 0].cpu().detach(), xy_hat[:, 1].cpu().detach(
+        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), x.cpu(), y.cpu(), f.cpu())
+
+        if Config.neptune:
+            neptune.log_metric('train_loss', loss)
+            neptune.log_metric('train_metric', metric)
 
         return loss
 
@@ -57,16 +57,12 @@ class IndoorLocModel(LightningModule):
 
         xy_hat, floor_hat = self(batch)
 
-        loss_xy = self.critertion_xy(xy_hat, xy_label)
-        loss_floor = self.criterion_floor(floor_hat, f).float()
-        loss = (loss_xy + 5000 * loss_floor).type(torch.float32)
+        loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
+        loss_floor = self.criterion_floor(floor_hat, f)
+        loss = loss_xy + 5000 * loss_floor
 
-        ic(loss_xy)
-        ic(loss_floor)
-        ic(loss)
-
-        metric = self.metric(xy_hat[:, 0].detach(), xy_hat[:, 1].detach(
-        ), torch.argmax(floor_hat, dim=-1).detach(), x, y, f)
+        metric = self.metric(xy_hat[:, 0].cpu().detach(), xy_hat[:, 1].cpu().detach(
+        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), x.cpu(), y.cpu(), f.cpu())
 
         return {'loss': loss, 'metric': metric}
 
@@ -77,8 +73,9 @@ class IndoorLocModel(LightningModule):
         self.log('val_loss', avg_loss, prog_bar=True)
         self.log('val_metric', avg_metric, prog_bar=True)
 
-        #neptune.log_metric('val_loss', avg_loss)
-        #neptune.log_metric('val_metric', avg_metric)
+        if Config.neptune:
+            neptune.log_metric('val_loss', avg_loss)
+            neptune.log_metric('val_metric', avg_metric)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.model.parameters(), lr=5e-3)
@@ -94,4 +91,4 @@ class IndoorLocModel(LightningModule):
         # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         #     optimizer, T_max=10, eta_min=0)
 
-        return [optimizer]
+        return optimizer

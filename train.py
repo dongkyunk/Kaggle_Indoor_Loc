@@ -3,17 +3,19 @@ import torch
 import os
 import neptune
 from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from model.lstm import simpleLSTM
 from model.model import IndoorLocModel
 from dataset.dataset import IndoorDataModule
 from config import Config
 from icecream import ic
 
-
-# neptune.init(project_qualified_name='dongkyuk/IndoorLoc',
-#              api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
-#              )
-# neptune.create_experiment()
+if Config.neptune:
+    neptune.init(project_qualified_name='dongkyuk/IndoorLoc',
+                api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
+                )
+    neptune.create_experiment()
 
 
 def train_model(fold: int):
@@ -29,7 +31,26 @@ def train_model(fold: int):
     model = IndoorLocModel(simpleLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
-    trainer = Trainer()
+    checkpoint_callback = ModelCheckpoint(
+        monitor='val_loss',
+        dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
+        filename='{epoch:02d}-{val_loss:.2f}.pth',
+        save_top_k=5,
+        mode='min',
+    )
+    early_stopping = EarlyStopping(
+        monitor='val_loss',
+        mode='min',
+    )
+
+    trainer = Trainer(
+        gpus=1, 
+        num_sanity_val_steps=-1,
+        deterministic=True, 
+        max_epochs=Config.epochs, 
+        callbacks=[checkpoint_callback, early_stopping],
+        profiler="pytorch"
+    )
     trainer.fit(model, idm)
 
 
