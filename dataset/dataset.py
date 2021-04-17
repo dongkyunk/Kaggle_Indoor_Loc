@@ -31,8 +31,8 @@ class IndoorDataset(Dataset):
             }
         elif self.flag == 'TEST':
             return {
-                'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(float),
-                'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(float),
+                'BSSID_FEATS': tmp_data[self.bssid_feats].values.astype(int),
+                'RSSI_FEATS': tmp_data[self.rssi_feats].values.astype(np.float32),
                 'site_id': tmp_data['site_id'].astype(int)
             }
 
@@ -55,7 +55,7 @@ class IndoorDataModule(LightningDataModule):
             wifi_bssids += self.test_data[f'bssid_{i}'].values.tolist()
 
         self.wifi_bssids = list(set(wifi_bssids))
-        self.wifi_bssids_size = len(wifi_bssids)
+        self.wifi_bssids_size = len(self.wifi_bssids)
 
     def _init_transforms(self):
         self.wifi_bssids_encoder = LabelEncoder()
@@ -118,10 +118,10 @@ class IndoorDataModule(LightningDataModule):
                 self.test_data, self.bssid_feats, self.rssi_feats, flag="TEST")
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=Config.batch_size, num_workers=Config.num_workers, shuffle=True)
+        return DataLoader(self.train, batch_size=Config.batch_size, num_workers=Config.num_workers, shuffle=True, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val, batch_size=Config.batch_size, num_workers=Config.num_workers)
+        return DataLoader(self.val, batch_size=Config.batch_size, num_workers=Config.num_workers, pin_memory=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=Config.batch_size, num_workers=Config.num_workers)
+        return DataLoader(self.test, batch_size=Config.batch_size, num_workers=Config.num_workers, pin_memory=True)

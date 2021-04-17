@@ -16,10 +16,11 @@ class Config():
     epochs = 100
     num_wifi_feats = 20
     fold_num = 5
-    batch_size = 8
+    batch_size = 128
     num_workers = 24
     device = 'gpu'
-    neptune = False
+    neptune = True
+    lr = 5e-3
 
     logging.basicConfig(level=logging.INFO)
     warnings.filterwarnings("ignore")
