@@ -23,7 +23,7 @@ idm = IndoorDataModule(train_data, test_data, kfold=True, fold_num=0)
 idm.prepare_data()
 idm.setup()
 
-model_path = os.path.join(Config.SAVE_DIR, '0/epoch=27-val_loss=7941.55.pth.ckpt')
+model_path = os.path.join(Config.SAVE_DIR, '0/epoch=90-val_loss=7772.81.pth.ckpt')
 model = IndoorLocModel.load_from_checkpoint(model_path, model=OrgLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 trainer = Trainer(

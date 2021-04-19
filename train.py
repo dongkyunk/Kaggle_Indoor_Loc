@@ -5,7 +5,7 @@ import neptune
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from model.lstm import OrgLSTM
+from model.lstm import OrgLSTM, CustomLSTM
 from model.model import IndoorLocModel
 from dataset.dataset import IndoorDataModule
 from config import Config
@@ -38,11 +38,10 @@ def train_model(fold: int):
     idm.setup()
     ic(idm.wifi_bssids_size)
     ic(idm.site_id_dim)
-    model = IndoorLocModel(OrgLSTM(
-        Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+    model = IndoorLocModel(CustomLSTM(Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
     checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
+        monitor='val_metric',
         dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
         filename='{epoch:02d}-{val_loss:.2f}.pth',
         save_top_k=5,
@@ -58,8 +57,8 @@ def train_model(fold: int):
         num_sanity_val_steps=-1,
         deterministic=True, 
         max_epochs=Config.epochs, 
-        callbacks=[checkpoint_callback, early_stopping],
-        auto_lr_find=True
+        callbacks=[checkpoint_callback],
+        # profiler="simple",
     )
     # trainer.tune(model, idm)
     trainer.fit(model, idm)

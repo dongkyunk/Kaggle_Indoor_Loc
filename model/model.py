@@ -25,6 +25,8 @@ class IndoorLocModel(LightningModule):
         self.metric_comp = metric_comp
         self.metric_floor = Accuracy()
 
+        self.loss_floor_weight = 1000
+
     def forward(self, x):
         x = self.model(x)
         return x
@@ -39,14 +41,31 @@ class IndoorLocModel(LightningModule):
         xy_hat, floor_hat = self(batch)
 
         loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
-        # ic(xy_hat)
-        # ic(xy_hat.float())
-        # ic(xy_label.float())
         loss_floor = self.criterion_floor(floor_hat, f)
-        loss = loss_xy + 5000 * loss_floor
+        loss = loss_xy + self.loss_floor_weight * loss_floor
+
+        return {'loss': loss, 'xy_label': xy_label, 'xy_hat': xy_hat, 'floor_hat': floor_hat, 'f':f}
+    
+    def training_epoch_end(self, outputs):
+        xy_label = torch.cat([output['xy_label'] for output in outputs], dim=0)
+        xy_hat = torch.cat([output['xy_hat'] for output in outputs], dim=0)
+        floor_hat = torch.cat([output['floor_hat'] for output in outputs], dim=0)
+        f = torch.cat([output['f'] for output in outputs], dim=0)
+
+        loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
+        loss_floor = self.criterion_floor(floor_hat, f)
+
+        if loss_xy < 10:
+            self.loss_floor_weight = 1
+        elif loss_xy < 100:
+            self.loss_floor_weight = 10
+        elif loss_xy < 1000:
+            self.loss_floor_weight = 100
+
+        loss = loss_xy + self.loss_floor_weight * loss_floor
 
         metric = self.metric_comp(xy_hat[:, 0].cpu().detach(), xy_hat[:, 1].cpu().detach(
-        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), x.cpu(), y.cpu(), f.cpu())
+        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), xy_label[:, 0].cpu(), xy_label[:, 1].cpu(), f.cpu())
         metric_floor = self.metric_floor(floor_hat, f)
 
         if Config.neptune:
@@ -55,8 +74,7 @@ class IndoorLocModel(LightningModule):
             neptune.log_metric('train_loss_floor', loss_floor)
             neptune.log_metric('train_metric', metric)
             neptune.log_metric('train_floor_accuracy', metric_floor)
-
-        return loss
+            neptune.log_metric('loss_floor_weight', self.loss_floor_weight)
 
     def validation_step(self, batch, batch_nb):
         x, y, f = batch['x'].unsqueeze(
@@ -67,36 +85,35 @@ class IndoorLocModel(LightningModule):
 
         xy_hat, floor_hat = self(batch)
 
-        loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
-        loss_floor = self.criterion_floor(floor_hat, f)
-        loss = loss_xy + 5000 * loss_floor
-
-        metric = self.metric_comp(xy_hat[:, 0].cpu().detach(), xy_hat[:, 1].cpu().detach(
-        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), x.cpu(), y.cpu(), f.cpu())
-        metric_floor = self.metric_floor(floor_hat, f)
-
-        return {'loss': loss, 'loss_xy': loss_xy, 'loss_floor': loss_floor, 'metric': metric, 'metric_floor': metric_floor}
+        return {'xy_label': xy_label, 'xy_hat': xy_hat, 'floor_hat': floor_hat, 'f':f}
 
     def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        avg_loss_xy = torch.stack([x['loss_xy'] for x in outputs]).mean()
-        avg_loss_floor = torch.stack([x['loss_floor'] for x in outputs]).mean()
-        avg_metric = torch.stack([x['metric'] for x in outputs]).mean()
-        avg_metric_floor = torch.stack(
-            [x['metric_floor'] for x in outputs]).mean()
+        xy_label = torch.cat([output['xy_label'] for output in outputs], dim=0)
+        xy_hat = torch.cat([output['xy_hat'] for output in outputs], dim=0)
+        floor_hat = torch.cat([output['floor_hat'] for output in outputs], dim=0)
+        f = torch.cat([output['f'] for output in outputs], dim=0)
+        
+        loss_xy = self.critertion_xy(xy_hat.float(), xy_label.float())
+        loss_floor = self.criterion_floor(floor_hat, f)
+        loss = loss_xy + self.loss_floor_weight * loss_floor
 
-        self.log('val_loss', avg_loss, prog_bar=True)
-        self.log('val_metric', avg_metric, prog_bar=True)
+        metric = self.metric_comp(xy_hat[:, 0].cpu().detach(), xy_hat[:, 1].cpu().detach(
+        ), torch.argmax(floor_hat, dim=-1).cpu().detach(), xy_label[:, 0].cpu(), xy_label[:, 1].cpu(), f.cpu())
+        metric_floor = self.metric_floor(floor_hat, f)
+
+        self.log('val_loss', loss, prog_bar=True)
+        self.log('val_metric', metric, prog_bar=True)
 
         if Config.neptune:
-            neptune.log_metric('val_loss', avg_loss)
-            neptune.log_metric('val_loss_xy', avg_loss_xy)
-            neptune.log_metric('val_loss_floor', avg_loss_floor)
-            neptune.log_metric('val_metric', avg_metric)
-            neptune.log_metric('val_floor_accuracy', avg_metric_floor)
+            neptune.log_metric('val_loss', loss)
+            neptune.log_metric('val_loss_xy', loss_xy)
+            neptune.log_metric('val_loss_floor', loss_floor)
+            neptune.log_metric('val_metric', metric)
+            neptune.log_metric('val_floor_accuracy', metric_floor)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
         # optimizer = optim.RAdam(
         #     model.parameters(),

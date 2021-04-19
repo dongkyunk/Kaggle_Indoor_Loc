@@ -13,10 +13,10 @@ class Config():
     SAVE_DIR = 'save'
     
     seed = 42
-    epochs = 100
-    num_wifi_feats = 20
+    epochs = 200
+    num_wifi_feats = 100
     fold_num = 5
-    batch_size = 128
+    batch_size = 256
     num_workers = 24
     device = 'gpu'
     neptune = True
