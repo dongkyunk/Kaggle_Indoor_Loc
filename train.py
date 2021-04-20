@@ -13,8 +13,8 @@ from icecream import ic
 
 if Config.neptune:
     neptune.init(project_qualified_name='dongkyuk/IndoorLoc',
-                api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
-                )
+                 api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
+                 )
     neptune.create_experiment(
         upload_source_files=[
             "train.py",
@@ -27,19 +27,25 @@ if Config.neptune:
 
 
 def train_model(fold: int):
+    # Load data
     train_data_dir = os.path.join(Config.DATA_DIR, 'train_all.pkl')
     test_data_dir = os.path.join(Config.DATA_DIR, 'test_all.pkl')
 
     train_data = pd.read_pickle(train_data_dir)
     test_data = pd.read_pickle(test_data_dir)
 
+    # Init datamodule
     idm = IndoorDataModule(train_data, test_data, kfold=True, fold_num=fold)
     idm.prepare_data()
     idm.setup()
     ic(idm.wifi_bssids_size)
     ic(idm.site_id_dim)
-    model = IndoorLocModel(CustomLSTM(Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
+    # Init model
+    model = IndoorLocModel(OrgLSTM(
+        Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
+
+    # Init callback
     checkpoint_callback = ModelCheckpoint(
         monitor='val_metric',
         dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
@@ -52,21 +58,25 @@ def train_model(fold: int):
         mode='min',
     )
 
+    # Init trainer
     trainer = Trainer(
-        gpus=1, 
+        gpus=1,
         num_sanity_val_steps=-1,
-        deterministic=True, 
-        max_epochs=Config.epochs, 
+        deterministic=True,
+        max_epochs=Config.epochs,
         callbacks=[checkpoint_callback],
         # profiler="simple",
     )
     # trainer.tune(model, idm)
+
+    # Train
     trainer.fit(model, idm)
 
 
 def main():
     for fold in range(Config.fold_num):
         train_model(fold)
+
 
 if __name__ == "__main__":
     main()

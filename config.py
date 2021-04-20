@@ -13,7 +13,7 @@ class Config():
     SAVE_DIR = 'save'
     
     seed = 42
-    epochs = 200
+    epochs = 300
     num_wifi_feats = 100
     fold_num = 5
     batch_size = 256
