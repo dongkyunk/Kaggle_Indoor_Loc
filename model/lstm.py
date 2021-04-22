@@ -22,8 +22,10 @@ class OrgLSTM(nn.Module):
 
         self.fc_rssi = nn.Linear(input_dim, input_dim * embedding_dim)
         self.fc_features = nn.Linear(self.feature_dim, 256)
-        self.fc_xy = nn.Linear(16, 2)
-        self.fc_floor = nn.Linear(16, 11)
+        # self.fc_xy = nn.Linear(16, 2)
+        # self.fc_floor = nn.Linear(16, 11)
+        # self.fc_floor = nn.Linear(16, 1)
+        self.fc_output = nn.Linear(16, 3)
 
         self.batch_norm_rssi = nn.BatchNorm1d(input_dim)
         self.batch_norm1 = nn.BatchNorm1d(self.feature_dim)
@@ -60,13 +62,16 @@ class OrgLSTM(nn.Module):
         x = x.transpose(0, 1)  # (, 1, 16)
         x = torch.relu(x)
 
-        xy = self.fc_xy(x)  # (, 1, 2)
+        # xy = self.fc_xy(x)  # (, 1, 2)
 
-        floor = self.fc_floor(x)  # (, 1, 11)
-        floor = torch.softmax(floor, dim=-1)
+        # # floor = self.fc_floor(x)  # (, 1, 11)
+        # # floor = torch.softmax(floor, dim=-1)
+        # floor = self.fc_floor(x) # (, 1, 1)
+        output = self.fc_output(x).squeeze(-2)
+        #xy.squeeze(-2), floor.squeeze(-2)
 
-        return xy.squeeze(-2), floor.squeeze(-2)
-
+        return output
+        
 
 
 class CustomLSTM(nn.Module):

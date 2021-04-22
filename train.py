@@ -33,7 +33,7 @@ def train_model(fold: int):
 
     train_data = pd.read_pickle(train_data_dir)
     test_data = pd.read_pickle(test_data_dir)
-
+    
     # Init datamodule
     idm = IndoorDataModule(train_data, test_data, kfold=True, fold_num=fold)
     idm.prepare_data()
@@ -47,7 +47,7 @@ def train_model(fold: int):
 
     # Init callback
     checkpoint_callback = ModelCheckpoint(
-        monitor='val_metric',
+        monitor='val_loss',
         dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
         filename='{epoch:02d}-{val_loss:.2f}.pth',
         save_top_k=5,
@@ -64,7 +64,7 @@ def train_model(fold: int):
         num_sanity_val_steps=-1,
         deterministic=True,
         max_epochs=Config.epochs,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, early_stopping],
         # profiler="simple",
     )
     # trainer.tune(model, idm)

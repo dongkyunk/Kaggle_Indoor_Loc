@@ -14,10 +14,10 @@ class Config():
     
     seed = 42
     epochs = 300
-    num_wifi_feats = 100
+    num_wifi_feats = 20
     fold_num = 5
     batch_size = 256
-    num_workers = 24
+    num_workers = 10
     device = 'gpu'
     neptune = True
     lr = 5e-3

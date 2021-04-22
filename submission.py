@@ -23,7 +23,7 @@ idm = IndoorDataModule(train_data, test_data, kfold=True, fold_num=0)
 idm.prepare_data()
 idm.setup()
 
-model_path = os.path.join(Config.SAVE_DIR, '0/epoch=90-val_loss=7772.81.pth.ckpt')
+model_path = os.path.join(Config.SAVE_DIR, '0/epoch=129-val_loss=4.89.pth.ckpt')
 model = IndoorLocModel.load_from_checkpoint(model_path, model=OrgLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 trainer = Trainer(
@@ -35,10 +35,12 @@ for i, batch in enumerate(idm.test_dataloader()):
     batch_index = i * Config.batch_size
     
     # Make prediction
-    xy_hat, floor_hat = model(batch)
-    x = xy_hat[:, 0].cpu().detach().numpy()
-    y = xy_hat[:, 1].cpu().detach().numpy()
-    f = torch.argmax(floor_hat, dim=-1).cpu().detach().numpy() - 2
+    output = model(batch)
+
+    x = output[:, 0].cpu().detach().numpy()
+    y = output[:, 1].cpu().detach().numpy()
+    # f = torch.argmax(floor_hat, dim=-1).cpu().detach().numpy() - 2
+    f = output[:, 2].cpu().detach().numpy()-2
 
     submit.iloc[batch_index:batch_index+Config.batch_size, -3] = f
     submit.iloc[batch_index:batch_index+Config.batch_size, -2] = x
