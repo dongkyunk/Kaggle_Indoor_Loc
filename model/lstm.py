@@ -3,10 +3,9 @@ import torch
 import torch.nn as nn
 from icecream import ic
 
-
-class OrgLSTM(nn.Module):
+class OgLSTM(nn.Module):
     def __init__(self, input_dim, bssid_dim, site_id_dim, embedding_dim=64, seq_len=20):
-        super(OrgLSTM, self).__init__()
+        super(OgLSTM, self).__init__()
 
         self.feature_dim = input_dim * embedding_dim * 2 + 2
 
@@ -22,10 +21,7 @@ class OrgLSTM(nn.Module):
 
         self.fc_rssi = nn.Linear(input_dim, input_dim * embedding_dim)
         self.fc_features = nn.Linear(self.feature_dim, 256)
-        # self.fc_xy = nn.Linear(16, 2)
-        # self.fc_floor = nn.Linear(16, 11)
-        # self.fc_floor = nn.Linear(16, 1)
-        self.fc_output = nn.Linear(16, 3)
+        self.fc_output = nn.Linear(16, 2)
 
         self.batch_norm_rssi = nn.BatchNorm1d(input_dim)
         self.batch_norm1 = nn.BatchNorm1d(self.feature_dim)
@@ -62,14 +58,8 @@ class OrgLSTM(nn.Module):
         x = x.transpose(0, 1)  # (, 1, 16)
         x = torch.relu(x)
 
-        # xy = self.fc_xy(x)  # (, 1, 2)
-
-        # # floor = self.fc_floor(x)  # (, 1, 11)
-        # # floor = torch.softmax(floor, dim=-1)
-        # floor = self.fc_floor(x) # (, 1, 1)
-        output = self.fc_output(x).squeeze(-2)
-        #xy.squeeze(-2), floor.squeeze(-2)
-
+        output = self.fc_output(x).squeeze()
+ 
         return output
         
 

@@ -6,7 +6,8 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import StratifiedKFold
 from config import Config
 from utils.utils import time_function
-import numpy as np  
+import numpy as np
+
 
 class IndoorDataset(Dataset):
     def __init__(self, data, bssid_feats, rssi_feats, flag='TRAIN'):
@@ -38,10 +39,12 @@ class IndoorDataset(Dataset):
 
 
 class IndoorDataModule(LightningDataModule):
-    def __init__(self, train_data, test_data, kfold=False, fold_num=None):
+    def __init__(self, train_data, test_data, kfold=False):
         self.train_data = train_data
         self.test_data = test_data
         self.kfold = kfold
+
+    def set_fold_num(self, fold_num):
         self.fold_num = fold_num
 
     def _init_feats(self):
@@ -62,7 +65,7 @@ class IndoorDataModule(LightningDataModule):
         self.wifi_bssids_encoder.fit(self.wifi_bssids)
 
         self.site_id_encoder = LabelEncoder()
-        self.site_id_encoder.fit(self.train_data['site_id'])
+        self.site_id_encoder = self.site_id_encoder.fit(self.train_data['site_id'])
 
         self.rssi_normalizer = StandardScaler()
         self.rssi_normalizer.fit(self.train_data[self.rssi_feats])
@@ -72,22 +75,19 @@ class IndoorDataModule(LightningDataModule):
             data[bssid_feat] = self.wifi_bssids_encoder.transform(
                 data[bssid_feat])
         data['site_id'] = self.site_id_encoder.transform(data['site_id'])
-        data[self.rssi_feats] = self.rssi_normalizer.transform(
-            data[self.rssi_feats])
+        data[self.rssi_feats] = self.rssi_normalizer.transform(data[self.rssi_feats])
         return data
 
     def _kfold(self):
         ''' Stratified Kfold based on site_id 
         '''
-        other, site_id = self.train_data.drop(
-            columns=['site_id']), self.train_data['site_id']
         skf = StratifiedKFold(n_splits=Config.fold_num,
                               shuffle=True, random_state=Config.seed)
-        for n, (train_index, val_index) in enumerate(skf.split(other, site_id)):
+        for n, (train_index, val_index) in enumerate(skf.split(self.train_data.loc[:, 'path'], self.train_data.loc[:, 'path'])):
             self.train_data.loc[val_index, 'kfold'] = int(n)
 
     @time_function
-    def setup(self, stage=None):
+    def prepare_data(self):
         # Init cross validation
         if self.kfold:
             self._kfold()
@@ -97,10 +97,13 @@ class IndoorDataModule(LightningDataModule):
         self._init_wifi_bssids()
         self._init_transforms()
         self.site_id_dim = len(self.train_data['site_id'].unique())
+        self.train_data = self._transform(self.train_data)
+        self.test_data = self._transform(self.test_data)
 
+    @time_function
+    def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
-            self.train_data = self._transform(self.train_data)
             if self.kfold:
                 train_df = self.train_data[self.train_data['kfold'] !=
                                            self.fold_num].reset_index(drop=True)
@@ -113,15 +116,14 @@ class IndoorDataModule(LightningDataModule):
 
         # Assign test dataset for use in dataloader(s)
         if stage == 'test' or stage is None:
-            self.test_data = self._transform(self.test_data)
             self.test = IndoorDataset(
                 self.test_data, self.bssid_feats, self.rssi_feats, flag="TEST")
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=Config.batch_size, num_workers=Config.num_workers, shuffle=True, pin_memory=True)
+        return DataLoader(self.train, batch_size=Config.train_batch_size, num_workers=Config.num_workers, shuffle=True, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val, batch_size=Config.batch_size, num_workers=Config.num_workers, pin_memory=True)
+        return DataLoader(self.val, batch_size=Config.val_batch_size, num_workers=Config.num_workers, shuffle=True, pin_memory=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test, batch_size=Config.batch_size, num_workers=Config.num_workers, pin_memory=True)
+        return DataLoader(self.test, batch_size=Config.val_batch_size, num_workers=Config.num_workers, shuffle=False, pin_memory=True)

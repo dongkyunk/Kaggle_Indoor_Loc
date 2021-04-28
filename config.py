@@ -16,10 +16,11 @@ class Config():
     epochs = 300
     num_wifi_feats = 20
     fold_num = 5
-    batch_size = 256
-    num_workers = 10
+    train_batch_size = 128
+    val_batch_size = 256
+    num_workers = 24
     device = 'gpu'
-    neptune = True
+    neptune = False
     lr = 5e-3
 
     logging.basicConfig(level=logging.INFO)

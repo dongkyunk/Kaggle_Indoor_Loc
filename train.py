@@ -5,13 +5,14 @@ import neptune
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from model.lstm import OrgLSTM, CustomLSTM
+from model.lstm import OgLSTM, CustomLSTM
 from model.model import IndoorLocModel
 from dataset.dataset import IndoorDataModule
 from config import Config
 from icecream import ic
 
-if Config.neptune:
+
+def init_neptune():
     neptune.init(project_qualified_name='dongkyuk/IndoorLoc',
                  api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
                  )
@@ -26,36 +27,44 @@ if Config.neptune:
     )
 
 
-def train_model(fold: int):
+def load_data():
     # Load data
-    train_data_dir = os.path.join(Config.DATA_DIR, 'train_all.pkl')
-    test_data_dir = os.path.join(Config.DATA_DIR, 'test_all.pkl')
+    train_data_dir = os.path.join(Config.DATA_DIR, 'train_all.csv')
+    test_data_dir = os.path.join(Config.DATA_DIR, 'test_all.csv')
 
-    train_data = pd.read_pickle(train_data_dir)
-    test_data = pd.read_pickle(test_data_dir)
-    
+    train_data = pd.read_csv(train_data_dir)
+    test_data = pd.read_csv(test_data_dir)
+
     # Init datamodule
-    idm = IndoorDataModule(train_data, test_data, kfold=True, fold_num=fold)
+    idm = IndoorDataModule(train_data, test_data, kfold=True)
     idm.prepare_data()
-    idm.setup()
     ic(idm.wifi_bssids_size)
     ic(idm.site_id_dim)
+    return idm
 
+
+def train_model(idm: IndoorDataModule, fold: int):
+    # Set fold
+    ic(fold)
+    idm.set_fold_num(fold)
+    idm.setup()
+    
     # Init model
-    model = IndoorLocModel(OrgLSTM(
+    model = IndoorLocModel(OgLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
     # Init callback
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
         dirpath=os.path.join(Config.SAVE_DIR, f'{fold}'),
-        filename='{epoch:02d}-{val_loss:.2f}.pth',
+        filename='{epoch:02d}-{val_loss:.2f}-{val_metric:.2f}.pth',
         save_top_k=5,
         mode='min',
     )
     early_stopping = EarlyStopping(
         monitor='val_loss',
         mode='min',
+        patience=8,
     )
 
     # Init trainer
@@ -74,8 +83,13 @@ def train_model(fold: int):
 
 
 def main():
+    if Config.neptune:
+        init_neptune()
+
+    idm = load_data()
+
     for fold in range(Config.fold_num):
-        train_model(fold)
+        train_model(idm, fold)
 
 
 if __name__ == "__main__":
