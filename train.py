@@ -2,20 +2,30 @@ import pandas as pd
 import torch
 import os
 import neptune
+import logging
+import warnings
+from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from model.lstm import OgLSTM, CustomLSTM
-from model.model import IndoorLocModel
+from model.transformer import Transformer   
+from model.model_comp import IndoorLocModel
 from dataset.dataset import IndoorDataModule
 from config import Config
 from icecream import ic
 
+def init_config(seed=42):
+    logging.basicConfig(level=logging.INFO)
+    warnings.filterwarnings("ignore")
+    seed_everything(seed)
 
 def init_neptune():
-    neptune.init(project_qualified_name='dongkyuk/IndoorLoc',
-                 api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
-                 )
+    neptune.init(
+        project_qualified_name='dongkyuk/IndoorLoc',
+        api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
+    )
+
     neptune.create_experiment(
         upload_source_files=[
             "train.py",
@@ -50,7 +60,7 @@ def train_model(idm: IndoorDataModule, fold: int):
     idm.setup()
     
     # Init model
-    model = IndoorLocModel(OgLSTM(
+    model = IndoorLocModel(CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
     # Init callback
@@ -64,7 +74,7 @@ def train_model(idm: IndoorDataModule, fold: int):
     early_stopping = EarlyStopping(
         monitor='val_loss',
         mode='min',
-        patience=8,
+        patience=10,
     )
 
     # Init trainer
@@ -83,6 +93,8 @@ def train_model(idm: IndoorDataModule, fold: int):
 
 
 def main():
+    init_config()
+
     if Config.neptune:
         init_neptune()
 

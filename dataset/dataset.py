@@ -3,7 +3,7 @@ from icecream import ic
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from config import Config
 from utils.utils import time_function
 import numpy as np
@@ -65,7 +65,8 @@ class IndoorDataModule(LightningDataModule):
         self.wifi_bssids_encoder.fit(self.wifi_bssids)
 
         self.site_id_encoder = LabelEncoder()
-        self.site_id_encoder = self.site_id_encoder.fit(self.train_data['site_id'])
+        self.site_id_encoder = self.site_id_encoder.fit(
+            self.train_data['site_id'])
 
         self.rssi_normalizer = StandardScaler()
         self.rssi_normalizer.fit(self.train_data[self.rssi_feats])
@@ -75,15 +76,22 @@ class IndoorDataModule(LightningDataModule):
             data[bssid_feat] = self.wifi_bssids_encoder.transform(
                 data[bssid_feat])
         data['site_id'] = self.site_id_encoder.transform(data['site_id'])
-        data[self.rssi_feats] = self.rssi_normalizer.transform(data[self.rssi_feats])
+        data[self.rssi_feats] = self.rssi_normalizer.transform(
+            data[self.rssi_feats])
         return data
 
     def _kfold(self):
-        ''' Stratified Kfold based on site_id 
+        ''' Group Kfold wrt path and Stratified Kfold wrt site_id
         '''
         skf = StratifiedKFold(n_splits=Config.fold_num,
-                              shuffle=True, random_state=Config.seed)
-        for n, (train_index, val_index) in enumerate(skf.split(self.train_data.loc[:, 'path'], self.train_data.loc[:, 'path'])):
+                                   shuffle=True, random_state=Config.seed)
+        self.train_data['site_id_f'] = self.train_data['site_id'] + self.train_data['floor'].astype(str)
+        for n, (train_index, val_index) in enumerate(
+            skf.split(
+                X = self.train_data['path'],
+                y = self.train_data['path']
+            )
+        ):
             self.train_data.loc[val_index, 'kfold'] = int(n)
 
     @time_function
