@@ -8,7 +8,7 @@ from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from model.lstm import OgLSTM, CustomLSTM
+from model.lstm import OgLSTM, CustomLSTM, SeqLSTM
 from model.transformer import Transformer   
 from model.model_comp import IndoorLocModel
 from dataset.dataset import IndoorDataModule
@@ -60,7 +60,7 @@ def train_model(idm: IndoorDataModule, fold: int):
     idm.setup()
     
     # Init model
-    model = IndoorLocModel(CustomLSTM(
+    model = IndoorLocModel(SeqLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 
     # Init callback

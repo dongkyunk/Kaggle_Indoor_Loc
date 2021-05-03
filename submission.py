@@ -5,7 +5,7 @@ import neptune
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from model.lstm import OgLSTM
+from model.lstm import OgLSTM, CustomLSTM
 from model.model_comp import IndoorLocModel
 from dataset.dataset import IndoorDataModule
 from config import Config
@@ -32,19 +32,19 @@ model_path_3 = os.path.join(Config.SAVE_DIR, '3/epoch=121-val_loss=5.22-val_metr
 model_path_4 = os.path.join(Config.SAVE_DIR, '4/epoch=129-val_loss=5.14-val_metric=5.14.pth.ckpt')
 
 
-model0 = IndoorLocModel.load_from_checkpoint(model_path_0, model=OgLSTM(
+model0 = IndoorLocModel.load_from_checkpoint(model_path_0, model=CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 model0.eval()
-model1 = IndoorLocModel.load_from_checkpoint(model_path_1, model=OgLSTM(
+model1 = IndoorLocModel.load_from_checkpoint(model_path_1, model=CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 model1.eval()
-model2 = IndoorLocModel.load_from_checkpoint(model_path_2, model=OgLSTM(
+model2 = IndoorLocModel.load_from_checkpoint(model_path_2, model=CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 model2.eval()
-model3 = IndoorLocModel.load_from_checkpoint(model_path_3, model=OgLSTM(
+model3 = IndoorLocModel.load_from_checkpoint(model_path_3, model=CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 model3.eval()
-model4 = IndoorLocModel.load_from_checkpoint(model_path_4, model=OgLSTM(
+model4 = IndoorLocModel.load_from_checkpoint(model_path_4, model=CustomLSTM(
         Config.num_wifi_feats, idm.wifi_bssids_size, idm.site_id_dim))
 model4.eval()
 
