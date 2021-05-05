@@ -22,8 +22,8 @@ def init_config(seed=42):
 
 def init_neptune():
     neptune.init(
-        project_qualified_name='dongkyuk/IndoorLoc',
-        api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIxOWY4YTFhZS00NGU5LTQxOTUtOGI5NC04ZjgwOTJkMDFmNjYifQ==',
+        project_qualified_name=,
+        api_token=,
     )
 
     neptune.create_experiment(
